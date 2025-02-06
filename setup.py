@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name='aigoofusion', 
-    version='0.1.3',
+    version='0.1.4',
     packages=find_packages(),
     description='`AIGooFusion` is a framework for developing applications by large language models (LLMs)',
     long_description=long_description,

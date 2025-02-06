@@ -272,3 +272,13 @@ or
 python aigoo_fusion.test.test_chat.py 
 python aigoo_fusion.test.test_flow.py 
 ```
+
+### Build package
+```sh
+python setup.py sdist bdist_wheel
+```
+
+### Upload package
+```sh
+twine upload dist/*
+```
