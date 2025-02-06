@@ -1,0 +1,10 @@
+services:
+  aigoo-fusion:
+    build: .
+    container_name: aigoo_fusion
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    tty: true
