@@ -1,5 +1,7 @@
 import asyncio
 import os
+import pprint
+from pyexpat.errors import messages
 
 from dotenv import load_dotenv
 
@@ -12,7 +14,9 @@ from aigoo_fusion.chat.models.openai.openai_usage_tracker import openai_usage_tr
 from aigoo_fusion.chat.tools.tool import Tool
 from aigoo_fusion.chat.tools.tool_registry import ToolRegistry
 from aigoo_fusion.flow.aigoo_flow import AIGooFlow
-from aigoo_fusion.flow.helper.tools_node import tools_node
+from aigoo_fusion.flow.helper import chat_memory
+from aigoo_fusion.flow.helper.chat_memory.chat_memory import ChatMemory
+from aigoo_fusion.flow.helper.tools_node.tools_node import tools_node
 from aigoo_fusion.flow.node.node import END, START
 from aigoo_fusion.flow.state.workflow_state import WorkflowState
 
@@ -92,107 +96,101 @@ async def test_workflow():
 	for text in ["Short", "This is a very long text that exceeds the maximum length", "Medium text"]:
 		result = await workflow.execute({"text": text})
 		results.append(result)
-	print(diagram)
-	print(result)
+		print(result)
+		print(diagram)
+
 	return results
 
 # Test with aigoochat
 async def test_aigoochat():
 	# Configuration
-		config = OpenAIConfig(
-			temperature=0.7
-		)
+	config = OpenAIConfig(
+		temperature=0.7
+	)
 
-		llm = OpenAIModel("gpt-4o-mini", config)
+	llm = OpenAIModel("gpt-4o-mini", config)
 
-		# Define a sample tool
-		@Tool()
-		def get_current_weather(location: str, unit: str = "celsius") -> str:
-			return f"The weather in {location} is 22 degrees {unit}"
+	# Define a sample tool
+	@Tool()
+	def get_current_weather(location: str, unit: str = "celsius") -> str:
+		return f"The weather in {location} is 22 degrees {unit}"
 
-		@Tool()
-		def get_current_time(location: str) -> str:
-			# Initialize framework
-			aig = AIGooChat(llm, system_message="You are a helpful assistant.")
-
-			# Example conversation with tool use
-			time = f"The time in {location} is 09:00 AM"
-			msgs = [
-				Message(role=Role.USER, content=time),
-			]
-			res = aig.generate(msgs)
-			return res.result.content or "No data"
-
-		tool_list = [get_current_weather, get_current_time]
-
+	@Tool()
+	def get_current_time(location: str) -> str:
 		# Initialize framework
-		fmk = AIGooChat(llm, system_message="You are a helpful assistant.")
+		aig = AIGooChat(llm, system_message="You are a helpful assistant.")
 
-		# Register tool
-		fmk.register_tool(tool_list)
+		# Example conversation with tool use
+		time = f"The time in {location} is 09:00 AM"
+		msgs = [
+			Message(role=Role.USER, content=time),
+		]
+		res = aig.generate(msgs)
+		return res.result.content or "No data"
 
-		# Register to ToolRegistry
-		tl_registry = ToolRegistry(tool_list)
+	tool_list = [get_current_weather, get_current_time]
 
-		# Workflow
-		workflow = AIGooFlow({
-			"messages": [],
-		})
+	# Initialize framework
+	fmk = AIGooChat(llm, system_message="You are a helpful assistant.")
 
-		async def main_agent(state: WorkflowState) -> dict:
-			messages = state.get("messages", [])
-			response = fmk.generate(messages)
-			messages.append(response.process[-1])
-			return {"messages": messages, "system": response.process[0]}
+	# Register tool
+	fmk.register_tool(tool_list)
 
-		async def tools(state: WorkflowState) -> dict:
-			messages = tools_node(messages=state.get("messages", []), registry=tl_registry)
-			return {"messages": messages}
+	# Register to ToolRegistry
+	tl_registry = ToolRegistry(tool_list)
 
-		def should_continue(state: WorkflowState) -> str:
-			messages = state.get("messages", [])
-			last_message = messages[-1]
-			if last_message.tool_calls:
-				return "tools"
-			return END
+	# Workflow
+	workflow = AIGooFlow({
+		"messages": [],
+	})
 
+	async def main_agent(state: WorkflowState) -> dict:
+		messages = state.get("messages", [])
+		response = fmk.generate(messages)
+		messages.append(response.process[-1])
+		return {"messages": messages, "system": response.process[0]}
 
-		# Add nodes
-		workflow.add_node("main_agent", main_agent)
-		workflow.add_node("tools", tools)
+	async def tools(state: WorkflowState) -> dict:
+		messages = tools_node(messages=state.get("messages", []), registry=tl_registry)
+		return {"messages": messages}
 
-		# Define workflow structure
-		workflow.add_edge(START, "main_agent")
-		workflow.add_conditional_edge("main_agent", ["tools", END], should_continue)
-		workflow.add_edge("tools", "main_agent")
-
-		async def call_sql_agent(question: str):
-			try:
-				with openai_usage_tracker() as usage:
-					res = await workflow.execute({
-						"messages": [
-							# Message(role=Role.USER, content="Siapa suksesor untuk posisi Chief Technology Officer?")
-							Message(role=Role.USER, content=question)
-						]
-					})
-
-				return res, usage
-			except Exception as e:
-				raise e
+	def should_continue(state: WorkflowState) -> str:
+		messages = state.get("messages", [])
+		last_message = messages[-1]
+		if last_message.tool_calls:
+			return "tools"
+		return END
 
 
-		quest="What's the weather like in London and what time is it?"
-		res, usage = await call_sql_agent(quest)
-		print(f"---\nResponse content:\n")
-		print(res['messages'][-1].content)
-		print(f"---\nRaw usages:")
-		for usg in usage.raw_usages:
-			print(f"{usg}")
-		print(f"---\nCallback:\n {usage}")
+	# Add nodes
+	workflow.add_node("main_agent", main_agent)
+	workflow.add_node("tools", tools)
 
-async def run():
-	# await test_workflow()
-	await test_aigoochat()
+	# Define workflow structure
+	workflow.add_edge(START, "main_agent")
+	workflow.add_conditional_edge("main_agent", ["tools", END], should_continue)
+	workflow.add_edge("tools", "main_agent")
 
-asyncio.run(run())
+	async def call_sql_agent(question: str):
+		try:
+			with openai_usage_tracker() as usage:
+				res = await workflow.execute({
+					"messages": [
+						# Message(role=Role.USER, content="Siapa suksesor untuk posisi Chief Technology Officer?")
+						Message(role=Role.USER, content=question)
+					]
+				})
 
+			return res, usage
+		except Exception as e:
+			raise e
+
+
+	quest="What's the weather like in London and what time is it?"
+	res, usage = await call_sql_agent(quest)
+	print(f"---\nResponse content:\n")
+	print(res['messages'][-1].content)
+	print(f"---\nRaw usages:")
+	for usg in usage.raw_usages:
+		print(f"{usg}")
+	print(f"---\nCallback:\n {usage}")
