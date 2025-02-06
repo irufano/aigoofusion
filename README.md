@@ -14,6 +14,9 @@
 - `AIGooFlow` is llm apps workflow.
 
 ## How to install
+
+Install [pydantic](https://pypi.org/project/pydantic) is required, [openai](https://pypi.org/project/openai) if needed.
+
 ### Using pip
 ```sh
 pip install aigoofusion
