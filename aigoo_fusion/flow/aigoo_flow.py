@@ -1,9 +1,10 @@
 import base64
 import inspect
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from aigoo_fusion.exception.aigoo_exception import AIGooException
 from aigoo_fusion.flow.edge.edge import Edge
+from aigoo_fusion.flow.helper.chat_memory.chat_memory import ChatMemory
 from aigoo_fusion.flow.node.node import END, START, Node, NodeType
 from aigoo_fusion.flow.state.workflow_state import WorkflowState
 from aigoo_fusion.flow.visualizer.visualizer import WorkflowVisualizer
@@ -118,7 +119,7 @@ class AIGooFlow:
 		"""Execute the workflow."""
 		try:
 			if additional_state:
-				self.state.update(additional_state)
+				self.state._update(additional_state)
 
 			# Validate workflow before execution
 			self.validate_workflow()
@@ -148,9 +149,9 @@ class AIGooFlow:
 							result = await node.func(**func_inputs)
 							# print(f"execute@AIGooFlow result: {result}")
 							if isinstance(result, dict):
-								self.state.update(result)
+								self.state._update(result)
 							elif len(node.outputs) == 1:
-								self.state.set(node.outputs[0], result)
+								self.state._update({node.outputs[0]: result})
 
 					except Exception as e:
 						raise AIGooException(
