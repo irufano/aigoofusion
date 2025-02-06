@@ -12,6 +12,22 @@
 `AIGooFusion` is a framework for developing applications powered by large language models (LLMs). `AIGooFusion` has `AIGooChat` and `AIGooFlow`. 
 - `AIGooChat` is llm abstraction to use various llm on one module. 
 - `AIGooFlow` is llm apps workflow.
+
+## How to install
+### Using pip
+```sh
+pip install git+https://github.com/irufano/aigoofusion
+```
+### using requirements.txt
+- Add into requirements.txt
+```txt
+git+https://github.com/irufano/aigoofusion
+```
+- Then install
+```txt
+pip install -r requirements.txt
+```
+
 ## Example
 ### AIGooChat Example
 ```python
