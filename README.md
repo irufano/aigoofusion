@@ -2,7 +2,6 @@
 <div align="center">
 
   <a href="">![python](https://img.shields.io/badge/python-3.11.11-4392FF.svg?style=for-the-badge&logo=python&logoColor=4392FF)</a>
-  <a href="">![openAI](https://img.shields.io/badge/openAI-239B56?style=for-the-badge&logo=openAI&logoColor=white)</a>
 
 </div>
 
@@ -17,8 +16,9 @@
 ### AIGooChat Example
 ```python
 info="""
-Irufano adalah seorang sofware engineer.
+Irufano adalah seorang software engineer.
 Dia berasal dari Indonesia.
+Kamu bisa mengunjungi websitenya di https:://irufano.github.io
 """ 
 
 def test_chat():
@@ -107,7 +107,7 @@ async def test_flow():
         messages = state.get("messages", [])
         response = fmk.generate(messages)
         messages.append(response.process[-1])
-        return {"messages": messages, "system": response.process[0]}
+        return {"messages": messages}
 
     async def tools(state: WorkflowState) -> dict:
         messages = tools_node(messages=state.get("messages", []), registry=tl_registry)
@@ -159,6 +159,70 @@ async def run():
 
 asyncio.run(run())
 
+```
+
+### Sample In-memory messages
+
+```python
+chat_memory = ChatMemory()
+
+# Workflow
+workflow = AIGooFlow({
+	"messages": [] ,
+})
+
+async def main(state: WorkflowState) -> dict:
+	messages = state.get("messages", [])
+	responses = ["Hello", "Wowww", "Amazing", "Gokil", "Good game well played", "Selamat pagi", "Maaf aku tidak tahu"]
+	random_answer = random.choice(responses)
+	ai_message = Message(role=Role.ASSISTANT, content=random_answer)
+	messages.append(ai_message)
+	return {"messages": messages}
+
+
+# Add nodes
+workflow.add_node("main", main)
+workflow.add_edge(START, "main")
+workflow.add_edge("main", END)
+
+async def call_workflow(question: str, thread_id: str):
+	try:
+		message = Message(role=Role.USER, content=question)
+
+		async with chat_memory.intercept(thread_id=thread_id, message=message) as (messages, result_call):
+			res = await workflow.execute({
+				"messages": messages
+			})
+			# must call this back 
+			result_call['messages'] = res['messages']
+
+		history = chat_memory.get_thread_history(thread_id=thread_id, max_length=None)
+		return res, history
+	except Exception as e:
+		raise e
+
+
+async def chat_terminal():
+	print("Welcome to the Chat Terminal! Type 'exit' to quit.")
+	print("Use one digit number on thread id for simplicity testing, i.e: thread_id: 1")
+
+	while True:
+		thread_id = input("thread_id: ")
+		user_input = input("You: ")
+
+		if user_input.lower() == 'exit':
+			print("Chatbot: Goodbye!")
+			break
+
+		response, history = await call_workflow(user_input.lower(), thread_id)
+		time.sleep(0.5) # Simulate a small delay for realism
+		print(f"\nChatbot: {response['messages'][-1].content}\n")
+		print(f"History: ")
+		for msg in history:
+			print(f"\t{msg}")
+
+if __name__ == "__main__":
+	asyncio.run(chat_terminal())
 ```
 
 ## Develop as Contributor
