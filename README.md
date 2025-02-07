@@ -34,21 +34,25 @@ pip install -r requirements.txt
 ## Example
 ### AIGooChat Example
 ```python
-info="""
-Irufano adalah seorang software engineer.
-Dia berasal dari Indonesia.
-Kamu bisa mengunjungi websitenya di https:://irufano.github.io
-""" 
+from aigoo_fusion.chat.aigoo_chat import AIGooChat
+from aigoo_fusion.chat.messages.message import Message
+from aigoo_fusion.chat.messages.role import Role
+from aigoo_fusion.chat.models.openai.openai_config import OpenAIConfig
+from aigoo_fusion.chat.models.openai.openai_model import OpenAIModel
+from aigoo_fusion.chat.models.openai.openai_usage_tracker import openai_usage_tracker
+from aigoo_fusion.exception.aigoo_exception import AIGooException
 
-def test_chat():
+def sample_prompt():
+    info = """
+	Irufano adalah seorang sofware engineer.
+	Dia berasal dari Indonesia.
+    Kamu bisa mengunjungi websitenya di https:://irufano.github.io
+	"""
+
     # Configuration
-    config = OpenAIConfig(
-        temperature=0.7
-    )
-
-    # Initialize llm
+    config = OpenAIConfig(temperature=0.7)
     llm = OpenAIModel(model="gpt-4o-mini", config=config)
-    
+
     SYSTEM_PROMPT = """Answer any user questions based solely on the data below:
     <data>
     {info}
@@ -58,32 +62,42 @@ def test_chat():
 
     # Initialize framework
     framework = AIGooChat(llm, system_message=SYSTEM_PROMPT, input_variables=["info"])
-    
+
     try:
-        # Example conversation with tool use
-        messages = [
-            Message(role=Role.USER, content="apa ibukota indonesia?")
-        ]
+        messages = [Message(role=Role.USER, content="apa ibukota china")]
         with openai_usage_tracker() as usage:
             response = framework.generate(messages, info=info)
             print(f"\n>> {response.result.content}\n")
             print(f"\nUsage:\n{usage}\n")
-        
+
     except AIGooException as e:
         print(f"{e}")
 
-test_chat()
+
+if __name__ == "__main__":
+    sample_prompt()
 ```
 
 
 ### AIGooFlow Example
 
 ```python
-async def test_flow():
+from aigoo_fusion.chat.aigoo_chat import AIGooChat
+from aigoo_fusion.chat.messages.message import Message
+from aigoo_fusion.chat.messages.role import Role
+from aigoo_fusion.chat.models.openai.openai_config import OpenAIConfig
+from aigoo_fusion.chat.models.openai.openai_model import OpenAIModel
+from aigoo_fusion.chat.models.openai.openai_usage_tracker import openai_usage_tracker
+from aigoo_fusion.chat.tools.tool import Tool
+from aigoo_fusion.chat.tools.tool_registry import ToolRegistry
+from aigoo_fusion.flow.aigoo_flow import AIGooFlow
+from aigoo_fusion.flow.helper.tools_node.tools_node import tools_node
+from aigoo_fusion.flow.node.node import END, START
+from aigoo_fusion.flow.state.workflow_state import WorkflowState
+
+async def sample_flow():
     # Configuration
-    config = OpenAIConfig(
-        temperature=0.7
-    )
+    config = OpenAIConfig(temperature=0.7)
 
     llm = OpenAIModel("gpt-4o-mini", config)
 
@@ -94,16 +108,7 @@ async def test_flow():
 
     @Tool()
     def get_current_time(location: str) -> str:
-        # Initialize framework
-        aig = AIGooChat(llm, system_message="You are a helpful assistant.")
-
-        # Example conversation with tool use
-        time = f"The time in {location} is 09:00 AM"
-        msgs = [
-            Message(role=Role.USER, content=time),
-        ]
-        res = aig.generate(msgs)
-        return res.result.content or "No data"
+        return f"The time in {location} is 09:00 AM"
 
     tool_list = [get_current_weather, get_current_time]
 
@@ -117,16 +122,17 @@ async def test_flow():
     tl_registry = ToolRegistry(tool_list)
 
     # Workflow
-    workflow = AIGooFlow({
-        "messages": [],
-    })
+    workflow = AIGooFlow(
+        {
+            "messages": [],
+        }
+    )
 
-    # Define Node functions
     async def main_agent(state: WorkflowState) -> dict:
         messages = state.get("messages", [])
         response = fmk.generate(messages)
         messages.append(response.process[-1])
-        return {"messages": messages}
+        return {"messages": messages, "system": response.process[0]}
 
     async def tools(state: WorkflowState) -> dict:
         messages = tools_node(messages=state.get("messages", []), registry=tl_registry)
@@ -139,12 +145,11 @@ async def test_flow():
             return "tools"
         return END
 
-
     # Add nodes
     workflow.add_node("main_agent", main_agent)
     workflow.add_node("tools", tools)
 
-    # Add edges structure
+    # Define workflow structure
     workflow.add_edge(START, "main_agent")
     workflow.add_conditional_edge("main_agent", ["tools", END], should_continue)
     workflow.add_edge("tools", "main_agent")
@@ -152,51 +157,79 @@ async def test_flow():
     async def call_sql_agent(question: str):
         try:
             with openai_usage_tracker() as usage:
-                res = await workflow.execute({
-                    "messages": [
-                        Message(role=Role.USER, content=question)
-                    ]
-                })
+                res = await workflow.execute(
+                    {
+                        "messages": [
+                            Message(role=Role.USER, content=question)
+                        ]
+                    }
+                )
 
             return res, usage
         except Exception as e:
             raise e
 
-
-    quest="What's the weather like in London and what time is it?"
+    quest = "What's the weather like in London and what time is it?"
     res, usage = await call_sql_agent(quest)
-    print(f"---\nResponse content:\n")
-    print(res['messages'][-1].content)
-    print(f"---\nRaw usages:")
+    print("---\nResponse content:\n")
+    print(res["messages"][-1].content)
+    print("---\nRaw usages:")
     for usg in usage.raw_usages:
         print(f"{usg}")
     print(f"---\nCallback:\n {usage}")
 
 async def run():
-	# await test_workflow()
-	await test_flow()
+	await sample_flow()
 
 asyncio.run(run())
 
 ```
 
-### Sample In-memory messages
+### In-memory Messages Example
 
 ```python
-chat_memory = ChatMemory()
+import asyncio
+import pprint
+import random
+import time
 
-# Workflow
-workflow = AIGooFlow({
-	"messages": [] ,
-})
+from aigoo_fusion.chat.messages.message import Message
+from aigoo_fusion.chat.messages.role import Role
+from aigoo_fusion.flow.aigoo_flow import AIGooFlow
+from aigoo_fusion.flow.node.node import END, START
+from aigoo_fusion.flow.state.memory_manager import MemoryManager
+from aigoo_fusion.flow.state.workflow_state import WorkflowState
+
+# Initialize memory manager
+memory_manager = MemoryManager(extend_list=True)
+
+# Create workflow with memory manager
+state = {
+    "messages": [],
+    "skill": {"programming": []},
+    "auth": {
+        "name": "irufano",
+        "company": "gokil",
+    },
+}
+workflow = AIGooFlow(state, memory=memory_manager)
+
 
 async def main(state: WorkflowState) -> dict:
-	messages = state.get("messages", [])
-	responses = ["Hello", "Wowww", "Amazing", "Gokil", "Good game well played", "Selamat pagi", "Maaf aku tidak tahu"]
-	random_answer = random.choice(responses)
-	ai_message = Message(role=Role.ASSISTANT, content=random_answer)
-	messages.append(ai_message)
-	return {"messages": messages}
+    messages = state.get("messages", [])
+    responses = [
+        "Hello",
+        "Wowww",
+        "Amazing",
+        "Gokil",
+        "Good game well played",
+        "Selamat pagi",
+        "Maaf aku tidak tahu",
+    ]
+    random_answer = random.choice(responses)
+    ai_message = Message(role=Role.ASSISTANT, content=random_answer)
+    messages.append(ai_message)
+    return {"messages": messages}
 
 
 # Add nodes
@@ -204,44 +237,64 @@ workflow.add_node("main", main)
 workflow.add_edge(START, "main")
 workflow.add_edge("main", END)
 
-async def call_workflow(question: str, thread_id: str):
-	try:
-		message = Message(role=Role.USER, content=question)
 
-		async with chat_memory.intercept(thread_id=thread_id, message=message) as (messages, result_call):
-			res = await workflow.execute({
-				"messages": messages
-			})
-			# must call this back 
-			result_call['messages'] = res['messages']
+async def call_workflow(
+    question: str,
+    thread_id: str,
+    name: str,
+    company: str,
+    coding: str,
+):
+    try:
+        message = Message(role=Role.USER, content=question)
+        messages = [message]
+        auth = {"name": name, "company": company}
+        programming = {"programming": [{"name": coding}]}
+        res = await workflow.execute(
+            { 
+                "messages": messages, 
+                "auth": auth, 
+                "skill": programming,
+            }, 
+            thread_id,
+        )
 
-		history = chat_memory.get_thread_history(thread_id=thread_id, max_length=None)
-		return res, history
-	except Exception as e:
-		raise e
+        return res
+    except Exception as e:
+        raise e
 
 
 async def chat_terminal():
-	print("Welcome to the Chat Terminal! Type 'exit' to quit.")
-	print("Use one digit number on thread id for simplicity testing, i.e: thread_id: 1")
+    print("Welcome to the Chat Terminal! Type 'exit' to quit.")
+    print(
+        "Use one digit number on thread id for simplicity testing, i.e: thread_id: 1\n"
+    )
 
-	while True:
-		thread_id = input("thread_id: ")
-		user_input = input("You: ")
+    while True:
+        thread_id = input("thread_id: ")
+        name = input("name: ")
+        company = input("company: ")
+        coding = input("coding: ")
+        user_input = input("You: ")
 
-		if user_input.lower() == 'exit':
-			print("Chatbot: Goodbye!")
-			break
+        if user_input.lower() == "exit":
+            print("Chatbot: Goodbye!")
+            break
 
-		response, history = await call_workflow(user_input.lower(), thread_id)
-		time.sleep(0.5) # Simulate a small delay for realism
-		print(f"\nChatbot: {response['messages'][-1].content}\n")
-		print(f"History: ")
-		for msg in history:
-			print(f"\t{msg}")
+        response = await call_workflow(
+            user_input.lower(), thread_id, name, company, coding
+        )
+        time.sleep(0.5)  # Simulate a small delay for realism
+        print(f"\nChatbot: {response['messages'][-1].content}\n")
+        pprint.pp(response)
+        # print("History: ")
+        # for msg in history:
+        #     print(f"\t{msg}")
+
 
 if __name__ == "__main__":
-	asyncio.run(chat_terminal())
+    asyncio.run(chat_terminal())
+
 ```
 
 ## Develop as Contributor
