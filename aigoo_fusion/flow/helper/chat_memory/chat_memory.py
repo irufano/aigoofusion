@@ -2,13 +2,20 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from threading import Lock
 from typing import Any, Dict, List, Optional
+import warnings
 
 from aigoo_fusion.chat.messages.message import Message
 
 
 class ChatMemory:
     """In-memory chat messages"""
+
     def __init__(self):
+        warnings.warn(
+            "`ChatMemory` is deprecated and will be removed in future versions. Using `MemoryManager` instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.history = {}  # In-memory storage for chat threads
         self.timestamps = {}  # Timestamps to track last usage of threads
         self.lock = Lock()  # To ensure thread-safety
@@ -50,9 +57,12 @@ class ChatMemory:
         # Create a mutable container to store the result
         result_container: Dict[str, List[Message]] = {"messages": []}
         try:
-            yield self.get_thread_history(thread_id=thread_id, max_length=None), result_container
+            yield (
+                self.get_thread_history(thread_id=thread_id, max_length=None),
+                result_container,
+            )
         finally:
             # Execute after handlers
-            self.add_message(thread_id=thread_id, message=result_container['messages'][-1]) # type: ignore
-
-
+            self.add_message(
+                thread_id=thread_id, message=result_container["messages"][-1]
+            )  # type: ignore
