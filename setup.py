@@ -8,6 +8,7 @@ setup(
     name="aigoofusion",
     version="0.1.5",
     packages=find_packages(),
+    include_package_data=True,
     description="`AIGooFusion` is a framework for developing applications by large language models (LLMs)",
     long_description=long_description,
     long_description_content_type="text/markdown",

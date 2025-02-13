@@ -34,18 +34,20 @@ pip install -r requirements.txt
 ## Example
 ### AIGooChat Example
 ```python
-from aigoo_fusion.chat.aigoo_chat import AIGooChat
-from aigoo_fusion.chat.messages.message import Message
-from aigoo_fusion.chat.messages.role import Role
-from aigoo_fusion.chat.models.openai.openai_config import OpenAIConfig
-from aigoo_fusion.chat.models.openai.openai_model import OpenAIModel
-from aigoo_fusion.chat.models.openai.openai_usage_tracker import openai_usage_tracker
-from aigoo_fusion.exception.aigoo_exception import AIGooException
+from aigoofusion import (
+    OpenAIModel,
+    OpenAIConfig,
+    AIGooChat,
+    Message,
+    Role,
+    openai_usage_tracker,
+    AIGooException,
+)
 
 def sample_prompt():
     info = """
-	Irufano adalah seorang sofware engineer.
-	Dia berasal dari Indonesia.
+    Irufano adalah seorang software engineer.
+    Dia berasal dari Indonesia.
     Kamu bisa mengunjungi websitenya di https:://irufano.github.io
 	"""
 
@@ -82,18 +84,21 @@ if __name__ == "__main__":
 ### AIGooFlow Example
 
 ```python
-from aigoo_fusion.chat.aigoo_chat import AIGooChat
-from aigoo_fusion.chat.messages.message import Message
-from aigoo_fusion.chat.messages.role import Role
-from aigoo_fusion.chat.models.openai.openai_config import OpenAIConfig
-from aigoo_fusion.chat.models.openai.openai_model import OpenAIModel
-from aigoo_fusion.chat.models.openai.openai_usage_tracker import openai_usage_tracker
-from aigoo_fusion.chat.tools.tool import Tool
-from aigoo_fusion.chat.tools.tool_registry import ToolRegistry
-from aigoo_fusion.flow.aigoo_flow import AIGooFlow
-from aigoo_fusion.flow.helper.tools_node.tools_node import tools_node
-from aigoo_fusion.flow.node.node import END, START
-from aigoo_fusion.flow.state.workflow_state import WorkflowState
+from aigoofusion import (
+    OpenAIModel,
+    OpenAIConfig,
+    AIGooChat,
+    ToolRegistry,
+    Tool,
+    Message,
+    Role,
+    openai_usage_tracker,
+    AIGooFlow,
+    WorkflowState,
+    START,
+    END,
+    tools_node,
+)
 
 async def sample_flow():
     # Configuration
