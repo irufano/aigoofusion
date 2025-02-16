@@ -2,4 +2,4 @@ openai==1.61.1
 python-dotenv==1.0.1
 pydantic==2.10.6
 twine==6.1.0
-setuptools
+boto3==1.36.19
