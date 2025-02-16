@@ -212,6 +212,28 @@ class AIGooFlow:
         """Get code for the workflow diagram."""
         return self.visualizer.create_mermaid_diagram(self)
 
+    def get_diagram_base64(self):
+        """Generate Mermaid diagram base64 for the workflow.
+
+        Display with:
+        ```py
+        display(Image(url=your_diagram_url))
+        ```
+        """
+
+        def get_base64(graph):
+            graphbytes = graph.encode("utf8")
+            base64_bytes = base64.urlsafe_b64encode(graphbytes)
+            base64_string = base64_bytes.decode("ascii")
+            return base64_string
+
+        mermaid_code = self.get_diagram_code()
+        return get_base64(
+            f"""
+			 {mermaid_code}
+			 """
+        )
+
     def get_diagram_url(self):
         """Generate Mermaid diagram url for the workflow.
 
