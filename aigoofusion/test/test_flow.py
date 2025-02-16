@@ -136,7 +136,7 @@ async def test_aigoochat():
     fmk.register_tool(tool_list)
 
     # Register to ToolRegistry
-    tl_registry = ToolRegistry(tool_list)
+    tl_registry = ToolRegistry(tool_list, llm)
 
     # Workflow
     workflow = AIGooFlow(
@@ -198,8 +198,8 @@ async def test_aigoochat():
 
 
 async def run():
-    # await test_aigoochat()
-    await test_workflow()
+    await test_aigoochat()
+    # await test_workflow()
 
 
 asyncio.run(run())

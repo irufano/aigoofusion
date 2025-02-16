@@ -95,6 +95,41 @@ def test_prompt():
         print(f"{e}")
 
 
+def test_stream():
+    info = """
+	Irufano adalah seorang sofware engineer.
+	Dia berasal dari Indonesia.
+	"""
+
+    # Configuration
+    config = OpenAIConfig(temperature=0.7)
+    llm = OpenAIModel(model="gpt-4o-mini", config=config)
+
+    SYSTEM_PROMPT = """Answer any user questions based solely on the data below:
+    <data>
+    {info}
+    </data>
+    
+    DO NOT response outside context."""
+
+    # Initialize framework
+    framework = AIGooChat(llm, system_message=SYSTEM_PROMPT, input_variables=["info"])
+
+    try:
+        # Example conversation with tool use
+        messages = [Message(role=Role.USER, content="apa ibukota china")]
+        # with openai_usage_tracker() as usage:
+        stream = framework.generate_stream(messages, info=info)
+        print("RESPONSE:")
+        for chunk in stream:
+            if chunk.choices[0].delta.content is not None:
+                print(f"{chunk.choices[0].delta.content}", end="")
+
+    except AIGooException as e:
+        print(f"{e}")
+
+
 if __name__ == "__main__":
-    # test_tools()
-    test_prompt()
+    test_tools()
+    # test_prompt()
+    # test_stream()
