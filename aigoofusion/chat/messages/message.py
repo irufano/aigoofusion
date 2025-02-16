@@ -1,7 +1,8 @@
-import json
-from typing import Any, Dict, List, Optional
 import uuid
+from typing import Any, List, Optional
+
 from pydantic import BaseModel, ConfigDict, Field
+
 
 from aigoofusion.chat.messages.role import Role
 from aigoofusion.chat.messages.tool_call import ToolCall
@@ -15,36 +16,27 @@ class Message(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     role: Role
     content: Optional[str] = None
+    name: Optional[str] = None
     tool_calls: Optional[List[ToolCall]] = None  # For Message with `assistant` role
     tool_call_id: Optional[str] = None  # For Message with `tool` role
-    name: Optional[str] = None
+    tool_results: Optional[List[Any]] = None  # For Message with `tool` role
+    request_call_id: Optional[str] = None  # For Message with `tool` role
 
-    def to_dict(self) -> dict:
-        message_dict: Dict[str, Any] = {
-            "id": self.id,
-            "role": self.role.value,
-        }
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-        if self.content is not None:
-            message_dict["content"] = self.content
+        # Ensure tool_results is only used when role is "tool"
+        if self.tool_results is not None and self.role != Role.TOOL:
+            raise ValueError("tool_results can only be set when role is 'tool'.")
 
-        if self.tool_calls:
-            message_dict["tool_calls"] = [
-                {
-                    "id": tool_call.tool_call_id,
-                    "type": "function",
-                    "function": {
-                        "name": tool_call.name,
-                        "arguments": json.dumps(tool_call.arguments),
-                    },
-                }
-                for tool_call in self.tool_calls
-            ]
+        # Ensure expect tool_results used when role is "tool"
+        if not self.tool_results and self.role == Role.TOOL:
+            raise ValueError("Expected tool_results when role is 'tool'.")
 
-        if self.tool_call_id:
-            message_dict["tool_call_id"] = self.tool_call_id
+        # Ensure tool_call_id is only used when role is "tool"
+        if self.tool_call_id is not None and self.role != Role.TOOL:
+            raise ValueError("tool_call_id can only be set when role is 'tool'.")
 
-        if self.name:
-            message_dict["name"] = self.name
-
-        return message_dict
+        # Ensure tool_calls is only used when role is "assistant"
+        if self.tool_calls is not None and self.role != Role.ASSISTANT:
+            raise ValueError("tool_calls can only be set when role is 'assistant'.")
