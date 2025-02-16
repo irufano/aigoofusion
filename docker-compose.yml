@@ -1,7 +1,7 @@
 services:
-  aigoo-fusion:
+  aigoofusion:
     build: .
-    container_name: aigoo_fusion
+    container_name: aigoofusion
     volumes:
       - .:/app
     environment:
