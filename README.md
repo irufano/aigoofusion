@@ -1,7 +1,8 @@
 
 <div align="center">
 
-  <a href="">![python](https://img.shields.io/badge/python-3.11.11-4392FF.svg?style=for-the-badge&logo=python&logoColor=4392FF)</a>
+  <a href="">![aigofusion](https://img.shields.io/badge/aigoofusion-0.1.6-30B445.svg?style=for-the-badge)</a>
+  <a href="">![python](https://img.shields.io/badge/python->3.11-4392FF.svg?style=for-the-badge&logo=python&logoColor=4392FF)</a>
 
 </div>
 
@@ -15,7 +16,10 @@
 
 ## How to install
 
-Install [pydantic](https://pypi.org/project/pydantic) is required, [openai](https://pypi.org/project/openai) if needed.
+- Prerequisites:
+  - Install [pydantic](https://pypi.org/project/pydantic) [required], 
+  - Install [openai](https://pypi.org/project/openai) to use OpenAI models [optional].
+  - Install [boto3](https://pypi.org/project/boto3/) to use AWS Bedrock models [optional].
 
 ### Using pip
 ```sh
@@ -310,17 +314,17 @@ docker-compose build
 
 ### Run the container
 ```sh
-docker-compose up -d aigoo-fusion
+docker-compose up -d aigoofusion
 ```
 
 ### Stop the container
 ```sh
-docker-compose stop aigoo-fusion
+docker-compose stop aigoofusion
 ```
 
 ### Access the container shell
 ```sh
-docker exec -it aigoo_fusion bash
+docker exec -it aigoofusion bash
 ```
 
 ### Run test

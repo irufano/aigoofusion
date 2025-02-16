@@ -3,3 +3,4 @@ python-dotenv==1.0.1
 pydantic==2.10.6
 twine==6.1.0
 boto3==1.36.19
+wheel
