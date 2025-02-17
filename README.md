@@ -1,7 +1,7 @@
 
 <div align="center">
 
-  <a href="https://pypi.org/project/aigoofusion/">![aigofusion](https://img.shields.io/badge/aigoofusion-0.1.6-30B445.svg?style=for-the-badge)</a>
+  <a href="https://pypi.org/project/aigoofusion/">![aigofusion](https://img.shields.io/badge/aigoofusion-0.1.7-30B445.svg?style=for-the-badge)</a>
   <a href="">![python](https://img.shields.io/badge/python->=3.11-4392FF.svg?style=for-the-badge&logo=python&logoColor=4392FF)</a>
 
 </div>
@@ -18,8 +18,8 @@
 
 - Prerequisites:
   - Install [pydantic](https://pypi.org/project/pydantic) [required], 
-  - Install [openai](https://pypi.org/project/openai) to use OpenAI models [required].
-  - Install [boto3](https://pypi.org/project/boto3/) to use AWS Bedrock models [required].
+  - Install [openai](https://pypi.org/project/openai) to use OpenAI models [optional].
+  - Install [boto3](https://pypi.org/project/boto3/) to use AWS Bedrock models [optional].
 
 ### Using pip
 ```sh
