@@ -21,4 +21,9 @@ setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.11",
+    install_requires=["pydantic"],
+    extras_require={
+        "openai": ["openai"],
+        "bedrock": ["boto3"],
+    },
 )

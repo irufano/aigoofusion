@@ -17,13 +17,13 @@ def bedrock_usage_tracker():
     Example:
     ```python
     with bedrock_usage_tracker() as usage:
-            result = llm.generate(messages)
+            result = chat.generate(messages)
             ...
             print(usage)
     ```
 
     Yields:
-            OpenAIUsage: OpenAI usage accumulation.
+            BedrockUsage: Bedrock usage accumulation.
     """
     usage_tracker = BedrockUsage()
     BEDROCK_USAGE_TRACKER_VAR.set(

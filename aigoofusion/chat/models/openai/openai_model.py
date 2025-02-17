@@ -1,6 +1,11 @@
+try:
+    import openai
+except ImportError:
+    openai = None
+
 import json
 import os
-import openai
+
 from typing import Any, Dict, List, Optional
 
 from aigoofusion.chat.messages.tool_call import ToolCall
@@ -30,12 +35,17 @@ class OpenAIModel(BaseAIModel):
     """
 
     def __init__(self, model: str, config: OpenAIConfig):
+        if openai is None:
+            raise AIGooException(
+                "openai package is not installed. Install it using `pip install aigoofusion[openai]`"
+            )
         if not os.getenv("OPENAI_API_KEY"):
             raise AIGooException("Please provide `OPENAI_API_KEY` on your environment!")
+
+        self.client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.provider = ModelProvider.OPENAI
         self.model_name = model
         self.config = config
-        self.client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.usage_callback = OpenAIUsage()
 
     @track_openai_usage

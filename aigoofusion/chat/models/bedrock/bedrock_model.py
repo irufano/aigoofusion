@@ -1,7 +1,10 @@
+try:
+    import boto3
+except ImportError:
+    boto3 = None
+
 import os
 from typing import Any, Dict, List
-
-import boto3
 
 from aigoofusion.chat.messages.tool_call import ToolCall
 from aigoofusion.chat.models.base_ai_model import BaseAIModel
@@ -16,6 +19,10 @@ from aigoofusion.exception.aigoo_exception import AIGooException
 
 class BedrockModel(BaseAIModel):
     def __init__(self, model: str, config: BedrockConfig):
+        if boto3 is None:
+            raise AIGooException(
+                "boto3 package is not installed. Install it using `pip install aigoofusion[boto3]`"
+            )
         if not os.getenv("AWS_ACCESS_KEY_ID"):
             raise AIGooException(
                 "Please provide `AWS_ACCESS_KEY_ID` on your environment!"
