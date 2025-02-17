@@ -1,8 +1,8 @@
 
 <div align="center">
 
-  <a href="">![aigofusion](https://img.shields.io/badge/aigoofusion-0.1.6-30B445.svg?style=for-the-badge)</a>
-  <a href="">![python](https://img.shields.io/badge/python->3.11-4392FF.svg?style=for-the-badge&logo=python&logoColor=4392FF)</a>
+  <a href="https://pypi.org/project/aigoofusion/">![aigofusion](https://img.shields.io/badge/aigoofusion-0.1.6-30B445.svg?style=for-the-badge)</a>
+  <a href="">![python](https://img.shields.io/badge/python->=3.11-4392FF.svg?style=for-the-badge&logo=python&logoColor=4392FF)</a>
 
 </div>
 
