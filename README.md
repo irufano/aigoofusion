@@ -18,8 +18,8 @@
 
 - Prerequisites:
   - Install [pydantic](https://pypi.org/project/pydantic) [required], 
-  - Install [openai](https://pypi.org/project/openai) to use OpenAI models [optional].
-  - Install [boto3](https://pypi.org/project/boto3/) to use AWS Bedrock models [optional].
+  - Install [openai](https://pypi.org/project/openai) to use OpenAI models [required].
+  - Install [boto3](https://pypi.org/project/boto3/) to use AWS Bedrock models [required].
 
 ### Using pip
 ```sh
