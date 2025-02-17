@@ -14,6 +14,8 @@ from .chat import (
     BedrockModel,
     bedrock_usage_tracker,
     track_bedrock_usage,
+    bedrock_stream_usage_tracker,
+    track_bedrock_stream_usage,
 )
 
 from .exception import AIGooException
@@ -54,4 +56,6 @@ __all__ = [
     "BedrockModel",
     "bedrock_usage_tracker",
     "track_bedrock_usage",
+    "bedrock_stream_usage_tracker",
+    "track_bedrock_stream_usage",
 ]

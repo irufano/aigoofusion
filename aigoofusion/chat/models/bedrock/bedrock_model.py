@@ -11,6 +11,9 @@ from aigoofusion.chat.models.base_ai_model import BaseAIModel
 from aigoofusion.chat.models.bedrock.bedrock_config import (
     BedrockConfig,
 )
+from aigoofusion.chat.models.bedrock.bedrock_stream_usage_tracker import (
+    track_bedrock_stream_usage,
+)
 from aigoofusion.chat.models.bedrock.bedrock_usage_tracker import track_bedrock_usage
 from aigoofusion.chat.models.model_provider import ModelProvider
 from aigoofusion.chat.responses.ai_response import AIResponse
@@ -51,6 +54,13 @@ class BedrockModel(BaseAIModel):
         try:
             response = self.client.converse(**params)
             return response
+        except Exception as e:
+            raise e
+
+    @track_bedrock_stream_usage
+    def __call_stream_bedrock(self, params: dict[str, Any]):
+        try:
+            return self.client.converse_stream(**params)
         except Exception as e:
             raise e
 
@@ -197,7 +207,7 @@ class BedrockModel(BaseAIModel):
             if tools:
                 params["toolConfig"] = {"tools": [{"toolSpec": tool} for tool in tools]}
 
-            return self.client.converse_stream(**params)
+            return self.__call_stream_bedrock(params)
 
         except Exception as e:
             raise AIGooException(e)

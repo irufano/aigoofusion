@@ -21,6 +21,9 @@ from aigoofusion.chat.models.bedrock.bedrock_model import (
     BedrockModel,
 )
 from aigoofusion.chat.models.bedrock.bedrock_config import BedrockConfig
+from aigoofusion.chat.models.bedrock.bedrock_stream_usage_tracker import (
+    bedrock_stream_usage_tracker,
+)
 from aigoofusion.chat.models.bedrock.bedrock_usage_tracker import bedrock_usage_tracker
 
 env_file = os.getenv("ENV_FILE", ".env")  # Default to .env if ENV_FILE is not set
@@ -140,32 +143,37 @@ def test_stream():
         # Example conversation with tool use
         messages = [Message(role=Role.USER, content="apa ibukota china")]
         # with openai_usage_tracker() as usage:
-        response = chat.generate_stream(messages, info=info)
-        print("\nRESPONSE:")
-        stream = response.get("stream")
+        with bedrock_stream_usage_tracker() as usage:
+            response = chat.generate_stream(messages, info=info)
+            print("\nRESPONSE:")
+            stream = response.get("stream")
 
-        if stream:
-            for event in stream:
-                if "messageStart" in event:
-                    print(f"\nRole: {event['messageStart']['role']}")
+            if stream:
+                for event in stream:
+                    if "messageStart" in event:
+                        print(f"\nRole: {event['messageStart']['role']}")
 
-                if "contentBlockDelta" in event:
-                    print(event["contentBlockDelta"]["delta"]["text"], end="")
+                    if "contentBlockDelta" in event:
+                        print(event["contentBlockDelta"]["delta"]["text"], end="")
 
-                if "messageStop" in event:
-                    print(f"\nStop reason: {event['messageStop']['stopReason']}")
+                    if "messageStop" in event:
+                        print(f"\nStop reason: {event['messageStop']['stopReason']}")
 
-                if "metadata" in event:
-                    metadata = event["metadata"]
-                    if "usage" in metadata:
-                        print("\nToken usage")
-                        print(f"Input tokens: {metadata['usage']['inputTokens']}")
-                        print(f":Output tokens: {metadata['usage']['outputTokens']}")
-                        print(f":Total tokens: {metadata['usage']['totalTokens']}")
-                    if "metrics" in event["metadata"]:
-                        print(
-                            f"Latency: {metadata['metrics']['latencyMs']} milliseconds"
-                        )
+                    if "metadata" in event:
+                        metadata = event["metadata"]
+                        if "usage" in metadata:
+                            print("\nToken usage")
+                            print(f"Input tokens: {metadata['usage']['inputTokens']}")
+                            print(
+                                f":Output tokens: {metadata['usage']['outputTokens']}"
+                            )
+                            print(f":Total tokens: {metadata['usage']['totalTokens']}")
+                        if "metrics" in event["metadata"]:
+                            print(
+                                f"Latency: {metadata['metrics']['latencyMs']} milliseconds"
+                            )
+
+        print(f"\nIRFAN NIH: {usage}")
 
     except Exception as e:
         raise e
@@ -266,8 +274,8 @@ async def test_flow():
 
 if __name__ == "__main__":
     # test_anthropic()
-    test_tools()
-    # test_stream()
+    # test_tools()
+    test_stream()
 
 
 # async def run():

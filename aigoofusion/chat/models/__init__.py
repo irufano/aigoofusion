@@ -16,6 +16,8 @@ from .bedrock import (
     bedrock_usage_tracker,
     track_bedrock_usage,
     BedrockUsage,
+    bedrock_stream_usage_tracker,
+    track_bedrock_stream_usage,
 )
 
 
@@ -35,4 +37,6 @@ __all__ = [
     "bedrock_usage_tracker",
     "track_bedrock_usage",
     "BedrockUsage",
+    "bedrock_stream_usage_tracker",
+    "track_bedrock_stream_usage",
 ]

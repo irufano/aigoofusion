@@ -12,7 +12,7 @@ BEDROCK_USAGE_TRACKER_VAR = ContextVar("BEDROCK_USAGE_TRACKER", default=BedrockU
 def bedrock_usage_tracker():
     """Bedrock usage tracker.
 
-    Use this to track token usage on openai.
+    Use this to track token usage on bedrock.
 
     Example:
     ```python
