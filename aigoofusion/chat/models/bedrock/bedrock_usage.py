@@ -1,10 +1,11 @@
 import math
 import os
 import re
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
 
 from aigoofusion.chat.models.bedrock.bedrock_pricing_list import BEDROCK_PRICING
 from aigoofusion.chat.models.model_pricing import ModelPricing
+from aigoofusion.exception.aigoo_exception import AIGooException
 
 
 class BedrockUsage:
@@ -16,14 +17,51 @@ class BedrockUsage:
     Usage in `BedrockModel`, `bedrock_usage_tracker` and `track_bedrock_usage`
     """
 
-    def __init__(self):
+    def __init__(self, pricing: Optional[Dict[str, Any]] = None):
+        if pricing:
+            if not self.__is_valid_pricing_structure(pricing):
+                error = """
+                Please provide the right pricing structure for bedrock, example:
+                ```
+                {
+                    "anthropic.claude-3-5-sonnet-20240620-v1:0": {
+                        "us-east-1": {
+                            "region": "US East (N. Virginia)",
+                            "input": 0.003,
+                            "output": 0.015,
+                        },
+                        "us-west-2": {
+                            "region": "US West (Oregon)",
+                            "input": 0.003,
+                            "output": 0.015,
+                        },
+                    },
+                    "anthropic.claude-3-5-sonnet-20241022-v2:0": {
+                        "us-east-1": {
+                            "region": "US East (N. Virginia)",
+                            "input": 0.003,
+                            "output": 0.015,
+                        },
+                        "us-west-2": {
+                            "region": "US West (Oregon)",
+                            "input": 0.003,
+                            "output": 0.015,
+                        },
+                    }
+                }
+                ```
+                """
+                raise AIGooException(error)
+
         self.total_request: int = 0
         self.output_tokens: int = 0
         self.input_tokens: int = 0
         self.total_tokens: int = 0
         self.total_cost: float = 0.0
         self.raw_usages: List[Dict[str, int]] = []
-        self.pricing: Dict[str, Dict[str, ModelPricing]] = self._load_pricing() or {}
+        self.pricing: Dict[str, Dict[str, ModelPricing]] = (
+            self._load_pricing(pricing_source=pricing or BEDROCK_PRICING) or {}
+        )
 
     def __repr__(self) -> str:
         rounded_up = math.ceil(self.total_cost * 1000000) / 1000000
@@ -35,7 +73,27 @@ class BedrockUsage:
             f"Total Cost (USD): ${rounded_up:.6f}"
         )
 
-    def _load_pricing(self) -> Dict[str, Dict[str, ModelPricing]]:
+    def __is_valid_pricing_structure(self, pricing: Any) -> bool:
+        # First check if it's a dictionary
+        if not isinstance(pricing, dict):
+            return False
+
+        # Check first level values are dictionaries
+        for outer_dict in pricing.values():
+            if not isinstance(outer_dict, dict):
+                return False
+
+            # Check second level values are dictionaries
+            for inner_dict in outer_dict.values():
+                if not isinstance(inner_dict, dict):
+                    return False
+
+        return True
+
+    def _load_pricing(
+        self,
+        pricing_source: Dict[str, Dict[str, Dict[str, Any]]],
+    ) -> Dict[str, Dict[str, ModelPricing]]:
         """
         Load bedrock pricing from dictionary.
         """
@@ -43,7 +101,7 @@ class BedrockUsage:
         # https://aws.amazon.com/bedrock/pricing/
         # https://aws.amazon.com/bedrock/pricing/
         # https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html
-        pricing_data = BEDROCK_PRICING
+        pricing_data = pricing_source
         return {
             model: {
                 region: ModelPricing(

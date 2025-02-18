@@ -74,7 +74,7 @@ def test_tools():
     # model="amazon.nova-lite-v1:0",
 
     llm = BedrockModel(
-        model="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+        model="amazon.nova-lite-v1:0",
         config=BedrockConfig(temperature=0.7),
     )
 
@@ -103,14 +103,29 @@ def test_tools():
                 content="what time and weather is it in london?",
             )
         ]
-        with bedrock_usage_tracker() as usage:
+        # sample custom price
+        prices = {
+            "amazon.nova-lite-v1:0": {
+                "us-east-1": {
+                    "region": "US East (N. Virginia)",
+                    "input": 0.00006,
+                    "output": 0.00024,
+                },
+                "us-west-2": {
+                    "region": "US West (Oregon)",
+                    "input": 0.00006,
+                    "output": 0.00024,
+                },
+            },
+        }
+        with bedrock_usage_tracker(pricing=prices) as usage:
             response = chat.generate_with_tools(messages)
             print(f"\n>> {response.result.content}\n")
             print(usage)
             print("\n")
 
-    except AIGooException as e:
-        print(f"Error: {e}")
+    except Exception as e:
+        print(e)
 
 
 def test_stream():
@@ -274,8 +289,8 @@ async def test_flow():
 
 if __name__ == "__main__":
     # test_anthropic()
-    # test_tools()
-    test_stream()
+    test_tools()
+    # test_stream()
 
 
 # async def run():

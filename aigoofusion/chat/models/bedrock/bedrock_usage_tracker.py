@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 import functools
+from typing import Any, Dict, Optional
 
 from aigoofusion.chat.models.bedrock.bedrock_usage import BedrockUsage
 
@@ -9,7 +10,7 @@ BEDROCK_USAGE_TRACKER_VAR = ContextVar("BEDROCK_USAGE_TRACKER", default=BedrockU
 
 
 @contextmanager
-def bedrock_usage_tracker():
+def bedrock_usage_tracker(pricing: Optional[Dict[str, Any]] = None):
     """Bedrock usage tracker.
 
     Use this to track token usage on bedrock.
@@ -22,10 +23,44 @@ def bedrock_usage_tracker():
             print(usage)
     ```
 
+    Args:
+        pricing (Optional[Dict[str, Any]], optional): Pricing dictionary source. Defaults to None.
+            If None then use default pricing from this dependency.
+
+            Example pricing structure:
+             ```
+            {
+                "anthropic.claude-3-5-sonnet-20240620-v1:0": {
+                    "us-east-1": {
+                        "region": "US East (N. Virginia)",
+                        "input": 0.003,
+                        "output": 0.015,
+                    },
+                    "us-west-2": {
+                        "region": "US West (Oregon)",
+                        "input": 0.003,
+                        "output": 0.015,
+                    },
+                },
+                "anthropic.claude-3-5-sonnet-20241022-v2:0": {
+                    "us-east-1": {
+                        "region": "US East (N. Virginia)",
+                        "input": 0.003,
+                        "output": 0.015,
+                    },
+                    "us-west-2": {
+                        "region": "US West (Oregon)",
+                        "input": 0.003,
+                        "output": 0.015,
+                    },
+                }
+            }
+            ```
+
     Yields:
-            BedrockUsage: Bedrock usage accumulation.
+        BedrockUsage: Bedrock usage accumulation.
     """
-    usage_tracker = BedrockUsage()
+    usage_tracker = BedrockUsage(pricing=pricing)
     BEDROCK_USAGE_TRACKER_VAR.set(
         usage_tracker
     )  # Store usage_tracker it in the context
