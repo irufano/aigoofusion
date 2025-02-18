@@ -93,12 +93,8 @@ class OpenAIModel(BaseAIModel):
                     {"type": "function", "function": tool} for tool in tools
                 ]
                 params["tool_choice"] = "auto"
-            print("\nREQUEST:")
-            print(json.dumps(params))
 
             response = self.__call_openai(params)
-            print("\nRESPONSE:")
-            print(response)
 
             message = response.choices[0].message
             tool_calls = None

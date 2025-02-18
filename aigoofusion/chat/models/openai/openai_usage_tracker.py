@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 import functools
+from typing import Any, Dict, Optional
 
 from aigoofusion.chat.models.openai.openai_usage import OpenAIUsage
 
@@ -9,7 +10,7 @@ OPENAI_USAGE_TRACKER_VAR = ContextVar("OPENAI_USAGE_TRACKER", default=OpenAIUsag
 
 
 @contextmanager
-def openai_usage_tracker():
+def openai_usage_tracker(pricing: Optional[Dict[str, Any]] = None):
     """OpenAI usage tracker.
 
     Use this to track token usage on openai.
@@ -22,10 +23,32 @@ def openai_usage_tracker():
             print(usage)
     ```
 
+    Args:
+        pricing (Optional[Dict[str, Any]], optional): Pricing dictionary source. Defaults to None.
+            If None then use default pricing from this dependency.
+
+            Example pricing structure:
+            ```
+            {
+                "gpt-4o": {
+                    "input": 2.50,
+                    "output": 10.00
+                },
+                "gpt-4o-mini": {
+                    "input": 0.15,
+                    "output": 0.60
+                },
+                "gpt-3.5-turbo": {
+                    "input": 0.05,
+                    "output": 1.50
+                }
+            }
+            ```
+
     Yields:
             OpenAIUsage: OpenAI usage accumulation.
     """
-    usage_tracker = OpenAIUsage()
+    usage_tracker = OpenAIUsage(pricing=pricing)
     OPENAI_USAGE_TRACKER_VAR.set(usage_tracker)  # Store usage_tracker it in the context
     try:
         yield usage_tracker  # Expose tracker to the context

@@ -86,7 +86,15 @@ def test_prompt():
     try:
         # Example conversation with tool use
         messages = [Message(role=Role.USER, content="apa ibukota china")]
-        with openai_usage_tracker() as usage:
+
+        # sample custom price
+        prices = {
+            "gpt-4o": {"input": 2.50, "output": 10.00},
+            "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+            "gpt-3.5-turbo": {"input": 0.05, "output": 1.50},
+        }
+
+        with openai_usage_tracker(pricing=prices) as usage:
             response = framework.generate(messages, info=info)
             print(f"\n>> {response.result.content}\n")
             print(f"\nUsage:\n{usage}\n")
@@ -130,6 +138,6 @@ def test_stream():
 
 
 if __name__ == "__main__":
-    test_tools()
-    # test_prompt()
+    # test_tools()
+    test_prompt()
     # test_stream()
