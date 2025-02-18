@@ -1,7 +1,7 @@
 
 <div align="center">
 
-  <a href="https://pypi.org/project/aigoofusion/">![aigofusion](https://img.shields.io/badge/aigoofusion-0.1.8-30B445.svg?style=for-the-badge)</a>
+  <a href="https://pypi.org/project/aigoofusion/">![aigofusion](https://img.shields.io/badge/aigoofusion-0.1.9-30B445.svg?style=for-the-badge)</a>
   <a href="">![python](https://img.shields.io/badge/python->=3.11-4392FF.svg?style=for-the-badge&logo=python&logoColor=4392FF)</a>
 
 </div>
@@ -34,6 +34,17 @@ aigoofusion
 ```txt
 pip install -r requirements.txt
 ```
+
+## How to use
+### OpenAI models
+To use `OpenAIModel`, add below config to your env:
+- `OPENAI_API_KEY`
+
+### AWS Bedrock models
+To use `BedrockModel`, add below config to your env:
+- `AWS_ACCESS_KEY_ID` 
+- `AWS_SECRET_ACCESS_KEY` 
+- `BEDROCK_AWS_REGION`
 
 ## Example
 ### AIGooChat Example
