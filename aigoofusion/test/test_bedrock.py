@@ -236,8 +236,8 @@ async def test_flow():
     async def main_agent(state: WorkflowState) -> dict:
         messages = state.get("messages", [])
         response = chat.generate(messages)
-        messages.append(response.process[-1])
-        return {"messages": messages, "system": response.process[0]}
+        messages.append(response.messages[-1])
+        return {"messages": messages, "system": response.messages[0]}
 
     async def node_tools(state: WorkflowState) -> dict:
         messages = tools_node(

@@ -1,5 +1,6 @@
 import asyncio
 import os
+import pprint
 
 from dotenv import load_dotenv
 
@@ -17,6 +18,10 @@ from aigoofusion import (
     START,
     END,
     tools_node,
+    ChatResponse,
+)
+from aigoofusion.chat.models.openai.openai_stream_usage_tracker import (
+    openai_stream_usage_tracker,
 )
 
 env_file = os.getenv("ENV_FILE", ".env")  # Default to .env if ENV_FILE is not set
@@ -148,8 +153,8 @@ async def test_aigoochat():
     async def main_agent(state: WorkflowState) -> dict:
         messages = state.get("messages", [])
         response = fmk.generate(messages)
-        messages.append(response.process[-1])
-        return {"messages": messages, "system": response.process[0]}
+        messages.append(response.messages[-1])
+        return {"messages": messages, "system": response.messages[0]}
 
     async def tools(state: WorkflowState) -> dict:
         messages = tools_node(messages=state.get("messages", []), registry=tl_registry)
@@ -197,9 +202,208 @@ async def test_aigoochat():
     print(f"---\nCallback:\n {usage}")
 
 
+# Test with stream
+async def test_stream():
+    # Configuration
+    config = OpenAIConfig(temperature=0.7)
+
+    llm = OpenAIModel("gpt-4o-mini", config)
+
+    workflow = AIGooFlow()
+
+    async def create_openai_streaming_node(prompt):
+        """
+        Create a node function that streams responses from OpenAI.
+
+        Args:
+            prompt: The prompt template to use
+            model: The OpenAI model to use
+
+        Returns:
+            A function that can be used as a streaming node
+        """
+
+        async def openai_stream(user_input, **kwargs):
+            # Format the prompt using the input and any other variables
+            formatted_prompt = prompt.format(user_input=user_input, **kwargs)
+
+            chat = AIGooChat(llm, system_message="youre helpfull assisstant")
+            messages = [Message(role=Role.USER, content=formatted_prompt)]
+            response = chat.generate_stream(messages)
+
+            full_text = ""
+
+            # This will be an async generator that yields streaming chunks
+            async def process_stream():
+                nonlocal full_text
+
+                for chunk in response:
+                    if chunk.choices[0].delta.content is not None:
+                        content = chunk.choices[0].delta.content
+                        full_text += content
+
+                        # Yield each chunk
+                        yield content
+
+                # Yield the final complete response as a dictionary
+                yield {"llm_response": full_text}
+
+            # Return the async generator
+            return process_stream()
+
+        return openai_stream
+
+    # Create a streaming LLM node
+    openai_node_func = await create_openai_streaming_node(prompt="{user_input}")
+
+    # Add nodes to the workflow
+    workflow.add_node("process_input", lambda input: {"user_input": input.strip()})
+    workflow.add_node("generate_response", openai_node_func, stream=True)
+    workflow.add_node(
+        "format_response",
+        lambda llm_response: {"final_response": f"AI says: {llm_response}"},
+    )
+
+    # Connect the nodes
+    workflow.add_edge(START, "process_input")
+    workflow.add_edge("process_input", "generate_response")
+    workflow.add_edge("generate_response", "format_response")
+    workflow.add_edge("format_response", END)
+
+    # Using streaming execution
+    async def stream_handler(chunk):
+        # Process each chunk as it arrives
+        print(chunk, end="", flush=True)
+
+    async for response in workflow.stream(
+        {"input": "Apa ibukota cina?"},
+    ):
+        if response["type"] == "stream_chunk":
+            if "content" in response:
+                print(response["content"], end="", flush=True)
+                print("")
+            pass
+        elif response["type"] == "node_result":
+            print(f"state: {response['result']}")
+        elif response["type"] == "workflow_complete":
+            print(f"complete: {response['state']}")
+
+
+async def test_stream_two():
+    # Configuration
+    config = OpenAIConfig(temperature=0.7)
+
+    llm = OpenAIModel("gpt-4o-mini", config)
+
+    # Define a sample tool
+    @Tool()
+    def get_current_weather(location: str, unit: str = "celsius") -> str:
+        return f"The weather in {location} is 22 degrees {unit}"
+
+    @Tool()
+    def get_current_time(location: str) -> str:
+        return f"The time in {location} is 09:00 AM"
+
+    tool_list = [get_current_weather, get_current_time]
+
+    # Initialize framework
+    fmk = AIGooChat(llm, system_message="You are a helpful assistant.")
+
+    # Register tool
+    fmk.register_tool(tool_list)
+
+    # Register to ToolRegistry
+    tl_registry = ToolRegistry(tool_list, llm)
+
+    # Workflow
+    workflow = AIGooFlow(
+        {
+            "messages": [],
+        }
+    )
+
+    async def main_agent(state: WorkflowState):
+        messages = state.get("messages", [])
+        stream = fmk.generate_stream(messages)
+
+        full_content = ""
+        last_message = None
+
+        for chunk in stream:
+            if isinstance(chunk, ChatResponse):
+                if chunk.result.content:
+                    content = chunk.result.content
+                    full_content += content
+                    yield content
+
+                if chunk.messages:
+                    msgs = chunk.messages
+                    if len(msgs) > 0:
+                        last_message = msgs[-1]
+
+        # Yield the final complete response as a dictionary
+        messages.append(last_message)
+
+        yield {"messages": messages}
+
+    async def tools(state: WorkflowState) -> dict:
+        messages = tools_node(messages=state.get("messages", []), registry=tl_registry)
+        return {"messages": messages}
+
+    def should_continue(state: WorkflowState) -> str:
+        messages = state.get("messages", [])
+        last_message = messages[-1]
+        if last_message.tool_calls:
+            return "tools"
+        return END
+
+    # Add nodes
+    workflow.add_node("main_agent", main_agent, stream=True)
+    workflow.add_node("tools", tools)
+
+    # Define workflow structure
+    workflow.add_edge(START, "main_agent")
+    workflow.add_conditional_edge("main_agent", ["tools", END], should_continue)
+    workflow.add_edge("tools", "main_agent")
+
+    async def stream_handler(content):
+        # Process each chunk as it arrives
+        print(content, end="", flush=True)
+
+    # question = "What's the weather in London?"
+    question = "What's the weather and current time in London?"
+    # question = "hello"
+
+    with openai_stream_usage_tracker() as usage:
+        stream = workflow.stream(
+            {
+                "messages": [
+                    Message(role=Role.USER, content=question),
+                ]
+            },
+            stream_callback=stream_handler,
+        )
+
+    async for chunk in stream:
+        if "type" in chunk:
+            if chunk["type"] == "stream_chunk":
+                if "content" in chunk:
+                    # use this or use `stream_callback`
+                    # print(chunk["content"], end="", flush=True)
+                    pass
+            if chunk["type"] == "workflow_complete":
+                if "state" in chunk:
+                    print("\n\n")
+                    pprint.pp(chunk["state"])
+                    print("\n\n")
+                    print(usage)
+
+
 async def run():
-    await test_aigoochat()
+    # await test_aigoochat()
     # await test_workflow()
+    # await test_stream()
+    await test_stream_two()
 
 
 asyncio.run(run())

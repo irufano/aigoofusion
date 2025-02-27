@@ -10,6 +10,7 @@ from aigoofusion import (
     Role,
     AIGooException,
     openai_usage_tracker,
+    ChatResponse,
 )
 
 env_file = os.getenv("ENV_FILE", ".env")  # Default to .env if ENV_FILE is not set
@@ -130,8 +131,9 @@ def test_stream():
         stream = framework.generate_stream(messages, info=info)
         print("RESPONSE:")
         for chunk in stream:
-            if chunk.choices[0].delta.content is not None:
-                print(f"{chunk.choices[0].delta.content}", end="")
+            if isinstance(chunk, ChatResponse):
+                if chunk.result.content is not None:
+                    print(f"{chunk.result.content}", end="")
 
     except AIGooException as e:
         print(f"{e}")
@@ -139,5 +141,5 @@ def test_stream():
 
 if __name__ == "__main__":
     # test_tools()
-    test_prompt()
-    # test_stream()
+    # test_prompt()
+    test_stream()
