@@ -105,7 +105,6 @@ class OpenAIUsage:
         # Calculate price
         if model in self.pricing:
             price_info = self.pricing[model]
-            print(price_info.token_input)
             input_price = (self.input_tokens / ONE_MILLION) * price_info.token_input
             output_price = (self.output_tokens / ONE_MILLION) * price_info.token_output
             self.total_cost = input_price + output_price
