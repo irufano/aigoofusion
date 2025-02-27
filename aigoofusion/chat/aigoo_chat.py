@@ -6,6 +6,7 @@ from aigoofusion.chat.messages.message import Message
 from aigoofusion.chat.messages.message_temp import MessageTemp
 from aigoofusion.chat.messages.role import Role
 from aigoofusion.chat.models.base_ai_model import BaseAIModel
+from aigoofusion.chat.responses.ai_response import AIResponse
 from aigoofusion.chat.responses.chat_response import ChatResponse
 from aigoofusion.chat.tools.tool import Tool
 from aigoofusion.exception.aigoo_exception import AIGooException
@@ -176,7 +177,7 @@ class AIGooChat:
 
             return ChatResponse(
                 result=response,
-                process=self.messages_temp.get_instance_messages(),
+                messages=self.messages_temp.get_instance_messages(),
             )
         except Exception as e:
             raise AIGooException(e)
@@ -263,7 +264,7 @@ class AIGooChat:
 
                 return ChatResponse(
                     result=response,
-                    process=self.messages_temp.get_instance_messages(),
+                    messages=self.messages_temp.get_instance_messages(),
                 )
         except Exception as e:
             raise AIGooException(e)
@@ -316,9 +317,42 @@ class AIGooChat:
                         provider=self.model.provider,
                     )
 
-            return self.model.generate_stream(
+            stream = self.model.generate_stream(
                 self.messages_temp.get_messages(provider=self.model.provider),
                 tools=self.__get_tool_definitions(),
+            )
+
+            full_content = ""
+            tool_calls = None
+
+            for chunk in stream:
+                if isinstance(chunk, AIResponse):
+                    content = ""
+                    tool_calls = []
+                    # Yield each chunk
+                    if chunk.content:
+                        content = chunk.content
+                        full_content += content
+
+                    if chunk.tool_calls:
+                        tool_calls = chunk.tool_calls
+
+                    # update content and toolcalls only
+                    yield ChatResponse(
+                        result=AIResponse(content=content, tool_calls=tool_calls),
+                        messages=[],
+                    )
+
+            self.messages_temp.add_assistant_message(
+                id=str(uuid.uuid4()),
+                content=full_content,
+                tool_calls=tool_calls,
+            )
+
+            # update messages only
+            yield ChatResponse(
+                result=AIResponse(),
+                messages=self.messages_temp.get_instance_messages(),
             )
         except Exception as e:
             raise AIGooException(e)
