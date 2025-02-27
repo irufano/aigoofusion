@@ -12,6 +12,9 @@ from aigoofusion.chat.messages.tool_call import ToolCall
 from aigoofusion.chat.models.base_ai_model import BaseAIModel
 from aigoofusion.chat.models.model_provider import ModelProvider
 from aigoofusion.chat.models.openai.openai_config import OpenAIConfig
+from aigoofusion.chat.models.openai.openai_stream_usage_tracker import (
+    track_openai_stream_usage,
+)
 from aigoofusion.chat.models.openai.openai_usage import OpenAIUsage
 from aigoofusion.chat.models.openai.openai_usage_tracker import track_openai_usage
 from aigoofusion.chat.responses.ai_response import AIResponse
@@ -31,7 +34,6 @@ class OpenAIModel(BaseAIModel):
     llm = OpenAIModel(model="gpt-4o-mini", config=config)
     ...
     ```
-
     """
 
     def __init__(self, model: str, config: OpenAIConfig):
@@ -53,6 +55,15 @@ class OpenAIModel(BaseAIModel):
         try:
             response = self.client.chat.completions.create(**params)
             return response
+        except Exception as e:
+            raise e
+
+    @track_openai_stream_usage
+    def __call_stream_openai(self, params: dict[str, Any]):
+        try:
+            params["stream"] = True
+            params["stream_options"] = {"include_usage": True}
+            return self.client.chat.completions.create(**params)
         except Exception as e:
             raise e
 
@@ -156,7 +167,6 @@ class OpenAIModel(BaseAIModel):
                 "messages": messages,
                 "temperature": self.config.temperature,
                 "max_tokens": self.config.max_tokens,
-                "stream": True,
                 **kwargs,
             }
 
@@ -166,7 +176,86 @@ class OpenAIModel(BaseAIModel):
                 ]
                 params["tool_choice"] = "auto"
 
-            return self.client.chat.completions.create(**params)
+            stream = self.__call_stream_openai(params)
+
+            tool_calls_accumulator = {}
+            tool_calls = None
+
+            for chunk in stream:
+                if chunk.usage:
+                    # ChatCompletionChunk(id='chatcmpl-B5SIoSdLpEFk9gFH0Vl4B6hM6st8H', choices=[], created=1740640134, model='gpt-4o-mini-2024-07-18', object='chat.completion.chunk', service_tier='default', system_fingerprint='fp_06737a9306', usage=CompletionUsage(completion_tokens=11, prompt_tokens=56, total_tokens=67, completion_tokens_details=CompletionTokensDetails(accepted_prediction_tokens=0, audio_tokens=0, reasoning_tokens=0, rejected_prediction_tokens=0), prompt_tokens_details=PromptTokensDetails(audio_tokens=0, cached_tokens=0)))
+                    # usage = chunk.usage
+                    # print(f"completion_tokens = {usage.completion_tokens or ''}")
+                    # print(f"prompt_tokens = {usage.prompt_tokens or ''}")
+                    # print(f"total_tokens = {usage.total_tokens or ''}")
+                    pass
+
+                if chunk.choices:
+                    content = None
+
+                    delta = chunk.choices[0].delta
+
+                    if delta.content is not None:
+                        content = delta.content
+
+                    if delta.tool_calls is not None:
+                        tool_calls = []
+                        for tool_call in delta.tool_calls:
+                            tool_call_id = (
+                                tool_call.id
+                            )  # Exists only in the first chunk
+
+                            if tool_call_id:  # First chunk of a new tool call
+                                tool_calls_accumulator[tool_call_id] = {
+                                    "request_call_id": chunk.id,
+                                    "tool_call_id": tool_call_id,
+                                    "name": tool_call.function.name,
+                                    "arguments": "",
+                                }
+
+                            # Find the active tool call in the accumulator
+                            active_tool_call = next(
+                                iter(tool_calls_accumulator.values()), None
+                            )
+                            if active_tool_call:
+                                # Accumulate arguments across multiple chunks
+                                active_tool_call["arguments"] += (
+                                    tool_call.function.arguments or ""
+                                )
+
+                                # Try to parse accumulated JSON when complete
+                                try:
+                                    parsed_arguments = json.loads(
+                                        active_tool_call["arguments"]
+                                    )
+
+                                    # Construct the ToolCall object
+                                    tool_calls.append(
+                                        ToolCall(
+                                            request_call_id=active_tool_call[
+                                                "request_call_id"
+                                            ],
+                                            tool_call_id=active_tool_call[
+                                                "tool_call_id"
+                                            ],
+                                            name=active_tool_call["name"],
+                                            arguments=parsed_arguments,
+                                        )
+                                    )
+
+                                    # Remove the tool call once fully processed
+                                    del tool_calls_accumulator[
+                                        active_tool_call["tool_call_id"]
+                                    ]
+
+                                except json.JSONDecodeError:
+                                    # JSON is incomplete, continue accumulating
+                                    pass
+
+                    yield AIResponse(
+                        content=content,
+                        tool_calls=tool_calls if tool_calls else None,
+                    )
 
         except Exception as e:
             raise AIGooException(e)
