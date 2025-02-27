@@ -9,9 +9,11 @@ class NodeType(Enum):
     FUNCTION = "function"
     CONDITIONAL = "conditional"
 
+
 # Special node identifiers
 START = "START"
 END = "END"
+
 
 @dataclass
 class Node:
@@ -20,3 +22,4 @@ class Node:
     func: Optional[Callable] = None
     inputs: List[str] = field(default_factory=list)
     outputs: List[str] = field(default_factory=list)
+    stream: bool = field(default=False)

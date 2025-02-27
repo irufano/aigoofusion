@@ -1,6 +1,6 @@
 import base64
 import inspect
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, AsyncGenerator
 
 from aigoofusion.exception.aigoo_exception import AIGooException
 from aigoofusion.flow.edge.edge import Edge
@@ -47,9 +47,28 @@ class AIGooFlow:
         return True
 
     def add_node(
-        self, name: str, func: Callable, node_type: NodeType = NodeType.FUNCTION
+        self,
+        name: str,
+        func: Callable,
+        node_type: NodeType = NodeType.FUNCTION,
+        stream: bool = False,
     ) -> None:
-        """Add a node to the workflow."""
+        """
+        Add a node to the workflow.
+        Set is_streaming=True for nodes that return streaming content.
+
+        Args:
+            name (str): Node name
+            func (Callable): Node description
+            node_type (NodeType, optional): Node type. Defaults to NodeType.FUNCTION.
+            stream (bool, optional): Node is use stream or not, if node use streaming set to True. Defaults to False.
+
+        Raises:
+            ValueError: _description_
+
+        Returns:
+            _type_: _description_
+        """
         if name in (START, END):
             raise ValueError(f"Cannot add node with reserved name {name}")
 
@@ -82,6 +101,7 @@ class AIGooFlow:
             func=wrapped_func,
             inputs=inputs,
             outputs=outputs,
+            stream=stream,
         )
         self.nodes[name] = node
 
@@ -134,7 +154,16 @@ class AIGooFlow:
         additional_state: Dict[str, Any],
         thread_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Execute the workflow."""
+        """
+        Execute the workflow in standard (non-streaming) mode.
+
+        Args:
+            additional_state: Initial state to add to the workflow
+            thread_id: Optional thread ID for memory management
+
+        Returns:
+            The final workflow state
+        """
         try:
             # validate thread_id
             if self.memory and not thread_id:
@@ -206,6 +235,141 @@ class AIGooFlow:
 
             return self.state.get_current()
         except Exception as e:
+            raise AIGooException(e)
+
+    async def stream(
+        self,
+        additional_state: Dict[str, Any],
+        thread_id: Optional[str] = None,
+        stream_callback: Optional[Callable] = None,
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        Execute the workflow in streaming mode, yielding results as they become available.
+
+        Args:
+            additional_state: Initial state to add to the workflow
+            thread_id: Optional thread ID for memory management
+            stream_callback: Optional callback function for handling streaming chunks (content only)
+
+        Returns:
+            An async generator yielding state and event updates
+        """
+        try:
+            # validate thread_id
+            if self.memory and not thread_id:
+                raise AIGooException(
+                    "`thread_id` required because workflow has memory."
+                )
+
+            if additional_state:
+                updated_state = self._handle_state_update(additional_state, thread_id)
+                yield {"type": "state_update", "state": updated_state}
+
+            # Validate workflow before execution
+            self.validate_workflow()
+            yield {"type": "workflow_start"}
+
+            nodes_to_process = [START]
+
+            while nodes_to_process:
+                current_node = nodes_to_process.pop(0)
+
+                if current_node == END:
+                    yield {"type": "node_complete", "node": END}
+                    continue
+
+                yield {"type": "node_start", "node": current_node}
+
+                if current_node != START:
+                    node = self.nodes[current_node]
+
+                    try:
+                        func_inputs = {
+                            input_name: self.state.get(input_name)
+                            for input_name in node.inputs
+                            if input_name != "state"
+                            and input_name in self.state.get_current()
+                        }
+
+                        if node.func:
+                            if node.stream:
+                                # Handle streaming node
+                                async for chunk in await node.func(**func_inputs):
+                                    if isinstance(chunk, dict):
+                                        # Update state
+                                        updated_state = self._handle_state_update(
+                                            chunk, thread_id
+                                        )
+                                        yield {
+                                            "type": "node_result",
+                                            "node": current_node,
+                                            "result": chunk,
+                                            "state": updated_state,
+                                        }
+
+                                    else:
+                                        # For raw non-dict chunks (like string tokens)
+                                        yield {
+                                            "type": "stream_chunk",
+                                            "node": current_node,
+                                            "content": chunk,
+                                        }
+
+                                        if stream_callback:
+                                            await stream_callback(chunk)
+                            else:
+                                # Handle non-streaming node
+                                result = await node.func(**func_inputs)
+                                if isinstance(result, dict):
+                                    updated_state = self._handle_state_update(
+                                        result, thread_id
+                                    )
+                                    yield {
+                                        "type": "node_result",
+                                        "node": current_node,
+                                        "result": result,
+                                        "state": updated_state,
+                                    }
+                                elif len(node.outputs) == 1:
+                                    result_dict = {node.outputs[0]: result}
+                                    updated_state = self._handle_state_update(
+                                        result_dict, thread_id
+                                    )
+                                    yield {
+                                        "type": "node_result",
+                                        "node": current_node,
+                                        "result": result_dict,
+                                        "state": updated_state,
+                                    }
+
+                    except Exception as e:
+                        error_msg = f"Error executing node {current_node}: {str(e)}"
+                        yield {
+                            "type": "error",
+                            "node": current_node,
+                            "error": error_msg,
+                        }
+                        raise AIGooException(error_msg)
+
+                yield {"type": "node_complete", "node": current_node}
+
+                # Get next nodes
+                next_nodes = []
+                for edge in self.edges:
+                    if edge.source == current_node:
+                        if edge.condition is None:
+                            next_nodes.extend(edge.targets)
+                        else:
+                            target = edge.condition()
+                            if target and target != END:
+                                next_nodes.append(target)
+
+                nodes_to_process.extend(next_nodes)
+                yield {"type": "next_nodes", "nodes": next_nodes}
+
+            yield {"type": "workflow_complete", "state": self.state.get_current()}
+        except Exception as e:
+            yield {"type": "workflow_error", "error": str(e)}
             raise AIGooException(e)
 
     def get_diagram_code(self) -> str:
