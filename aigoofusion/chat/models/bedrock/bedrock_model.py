@@ -3,6 +3,7 @@ try:
 except ImportError:
     boto3 = None
 
+import json
 import os
 from typing import Any, Dict, List
 
@@ -207,7 +208,91 @@ class BedrockModel(BaseAIModel):
             if tools:
                 params["toolConfig"] = {"tools": [{"toolSpec": tool} for tool in tools]}
 
-            return self.__call_stream_bedrock(params)
+            response = self.__call_stream_bedrock(params)
+            res_metadata = response.get("ResponseMetadata")
+            stream = response.get("stream")
+
+            request_id = res_metadata.get("RequestId")
+            tool_calls_accumulator = {}
+            tools = []
+            tool_calls_accumulator["tools"] = tools
+            tool_use = {}
+
+            if stream:
+                tooluse_id = None
+                for chunk in stream:
+                    text = None
+
+                    if "messageStart" in chunk:
+                        # print(f"\nRole: {chunk['messageStart']['role']}")
+                        pass
+
+                    elif "contentBlockStart" in chunk:
+                        tool = chunk["contentBlockStart"]["start"]["toolUse"]
+                        tooluse_id = tool["toolUseId"]
+                        tool_use["toolUseId"] = tooluse_id
+                        tool_use["name"] = tool["name"]
+                        # print(f"\nSTART: {tooluse_id}")
+                        # print(f"START: {tool_use}")
+
+                    if "contentBlockDelta" in chunk:
+                        delta = chunk["contentBlockDelta"]["delta"]
+                        # print(f"\nDELTA: {delta}")
+                        if "text" in delta:
+                            text = delta["text"]
+
+                        if "toolUse" in delta:
+                            if "input" not in tool_use:
+                                tool_use["input"] = ""
+                            tool_use["input"] += delta["toolUse"]["input"]
+
+                    elif "contentBlockStop" in chunk:
+                        if "input" in tool_use:
+                            # print(f"TOOLS: {tools}")
+                            # print(f"TOOL_USE: {tool_use}")
+                            tool_use["input"] = json.loads(tool_use["input"])
+                            tools.append({"toolUse": tool_use})
+                            tool_use = {}
+
+                    if "messageStop" in chunk:
+                        # print(f"FINAL_TOOLS : {tools}")
+                        # print(f"\nStop reason: {chunk['messageStop']['stopReason']}")
+                        pass
+
+                    if "metadata" in chunk:
+                        metadata = chunk["metadata"]
+                        if "usage" in metadata:
+                            # print("\nToken usage")
+                            # print(f"Input tokens: {metadata['usage']['inputTokens']}")
+                            # print(
+                            #     f":Output tokens: {metadata['usage']['outputTokens']}"
+                            # )
+                            # print(f":Total tokens: {metadata['usage']['totalTokens']}")
+                            pass
+                        if "metrics" in chunk["metadata"]:
+                            # print(
+                            #     f"Latency: {metadata['metrics']['latencyMs']} milliseconds"
+                            # )
+                            pass
+
+                    tool_calls = []
+
+                    for tools_content in tool_calls_accumulator["tools"]:
+                        if "toolUse" in tools_content:
+                            tool = tools_content["toolUse"]
+                            tool_calls.append(
+                                ToolCall(
+                                    request_call_id=request_id,
+                                    tool_call_id=tool["toolUseId"],
+                                    name=tool["name"],
+                                    arguments=tool["input"],
+                                )
+                            )
+
+                    yield AIResponse(
+                        content=text,
+                        tool_calls=tool_calls if tool_calls else None,
+                    )
 
         except Exception as e:
             raise AIGooException(e)
