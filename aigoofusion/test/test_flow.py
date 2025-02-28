@@ -19,9 +19,10 @@ from aigoofusion import (
     END,
     tools_node,
     ChatResponse,
-)
-from aigoofusion.chat.models.openai.openai_stream_usage_tracker import (
     openai_stream_usage_tracker,
+    BedrockModel,
+    BedrockConfig,
+    bedrock_stream_usage_tracker,
 )
 
 env_file = os.getenv("ENV_FILE", ".env")  # Default to .env if ENV_FILE is not set
@@ -291,9 +292,15 @@ async def test_stream():
 
 async def test_stream_two():
     # Configuration
-    config = OpenAIConfig(temperature=0.7)
+    # config = OpenAIConfig(temperature=0.7)
 
-    llm = OpenAIModel("gpt-4o-mini", config)
+    # llm = OpenAIModel("gpt-4o-mini", config)
+
+    # model="anthropic.claude-3-haiku-20240307-v1:0",
+    # model="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+    # model="amazon.nova-lite-v1:0",
+
+    llm = BedrockModel(model="amazon.nova-lite-v1:0", config=BedrockConfig())
 
     # Define a sample tool
     @Tool()
@@ -369,34 +376,39 @@ async def test_stream_two():
     async def stream_handler(content):
         # Process each chunk as it arrives
         print(content, end="", flush=True)
+        pass
 
     # question = "What's the weather in London?"
     question = "What's the weather and current time in London?"
-    # question = "hello"
+    # question = "hai"
 
-    with openai_stream_usage_tracker() as usage:
-        stream = workflow.stream(
-            {
-                "messages": [
-                    Message(role=Role.USER, content=question),
-                ]
-            },
-            stream_callback=stream_handler,
-        )
+    with bedrock_stream_usage_tracker() as bedrock_usage:
+        with openai_stream_usage_tracker() as openai_usage:
+            stream = workflow.stream(
+                {
+                    "messages": [
+                        Message(role=Role.USER, content=question),
+                    ]
+                },
+                # stream_callback=stream_handler,
+            )
 
     async for chunk in stream:
         if "type" in chunk:
             if chunk["type"] == "stream_chunk":
                 if "content" in chunk:
                     # use this or use `stream_callback`
-                    # print(chunk["content"], end="", flush=True)
+                    print(chunk["content"], end="", flush=True)
                     pass
             if chunk["type"] == "workflow_complete":
                 if "state" in chunk:
                     print("\n\n")
                     pprint.pp(chunk["state"])
+                    print("\n\nBEDROCK USAGE:")
+                    print(bedrock_usage)
+                    print("\nOPENAI USAGE:")
+                    print(openai_usage)
                     print("\n\n")
-                    print(usage)
 
 
 async def run():
