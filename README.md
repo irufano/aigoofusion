@@ -1,7 +1,7 @@
 
 <div align="center">
 
-  <a href="https://pypi.org/project/aigoofusion/">![aigofusion](https://img.shields.io/badge/aigoofusion-0.1.9-30B445.svg?style=for-the-badge)</a>
+  <a href="https://pypi.org/project/aigoofusion/">![aigofusion](https://img.shields.io/badge/aigoofusion-0.1.10-30B445.svg?style=for-the-badge)</a>
   <a href="">![python](https://img.shields.io/badge/python->=3.11-4392FF.svg?style=for-the-badge&logo=python&logoColor=4392FF)</a>
 
 </div>
@@ -315,6 +315,120 @@ async def chat_terminal():
 if __name__ == "__main__":
     asyncio.run(chat_terminal())
 
+```
+
+### Stream with AIGooFlow Example
+```python
+async def stream_aigooflow():
+    # llm = OpenAIModel(model="gpt-4o-mini", config=OpenAIConfig(temperature=0.7))
+    
+    llm = BedrockModel(model="amazon.nova-lite-v1:0" config=BedrockConfig())
+
+    # Define a sample tool
+    @Tool()
+    def get_current_weather(location: str, unit: str = "celsius") -> str:
+        return f"The weather in {location} is 22 degrees {unit}"
+
+    @Tool()
+    def get_current_time(location: str) -> str:
+        return f"The time in {location} is 09:00 AM"
+
+    tool_list = [get_current_weather, get_current_time]
+
+    # Initialize framework
+    chat = AIGooChat(llm, system_message="You are a helpful assistant.")
+
+    # Register tool
+    chat.register_tool(tool_list)
+
+    # Register to ToolRegistry
+    tool_registry = ToolRegistry(tool_list, llm)
+
+    # Workflow
+    workflow = AIGooFlow(
+        {
+            "messages": [],
+        }
+    )
+
+    async def main_agent(state: WorkflowState):
+        messages = state.get("messages", [])
+        stream = chat.generate_stream(messages)
+
+        full_content = ""
+        last_message = None
+
+        for chunk in stream:
+            if isinstance(chunk, ChatResponse):
+                if chunk.result.content:
+                    content = chunk.result.content
+                    full_content += content
+                    yield content
+
+                if chunk.messages:
+                    msgs = chunk.messages
+                    if len(msgs) > 0:
+                        last_message = msgs[-1]
+
+        # Yield the final complete response as a dictionary
+        messages.append(last_message)
+
+        yield {"messages": messages}
+
+    async def tools(state: WorkflowState) -> dict:
+        messages = tools_node(messages=state.get("messages", []), registry=tool_registry)
+        return {"messages": messages}
+
+    def should_continue(state: WorkflowState) -> str:
+        messages = state.get("messages", [])
+        last_message = messages[-1]
+        if last_message.tool_calls:
+            return "tools"
+        return END
+
+    # Add nodes
+    workflow.add_node("main_agent", main_agent, stream=True)
+    workflow.add_node("tools", tools)
+
+    # Define workflow structure
+    workflow.add_edge(START, "main_agent")
+    workflow.add_conditional_edge("main_agent", ["tools", END], should_continue)
+    workflow.add_edge("tools", "main_agent")
+
+    question = "What's the weather and current time in London?"
+    with bedrock_stream_usage_tracker() as bedrock_usage:
+        with openai_stream_usage_tracker() as openai_usage:
+            stream = workflow.stream(
+                {
+                    "messages": [
+                        Message(role=Role.USER, content=question),
+                    ]
+                },
+            )
+
+    print("RESPONSE:\n")
+    async for chunk in stream:
+        if "type" in chunk:
+            if chunk["type"] == "stream_chunk":
+                if "content" in chunk:
+                    # use this or use `stream_callback`
+                    print(chunk["content"], end="", flush=True)
+                    pass
+            if chunk["type"] == "workflow_complete":
+                if "state" in chunk:
+                    print("\n\n")
+                    pprint.pp(chunk["state"])
+                    print("\n\nBEDROCK USAGE:")
+                    print(bedrock_usage)
+                    print("\nOPENAI USAGE:")
+                    print(openai_usage)
+                    print("\n\n")
+
+async def run():
+    await stream_aigooflow()
+
+
+asyncio.run(run())
 ```
 
 ## Develop as Contributor
