@@ -10,12 +10,12 @@ from .chat import (
     OpenAIModel,
     openai_usage_tracker,
     track_openai_usage,
+    openai_stream_usage_tracker,
     BedrockConfig,
     BedrockModel,
     bedrock_usage_tracker,
     track_bedrock_usage,
     bedrock_stream_usage_tracker,
-    track_bedrock_stream_usage,
 )
 
 from .exception import AIGooException
@@ -43,6 +43,7 @@ __all__ = [
     "OpenAIModel",
     "track_openai_usage",
     "openai_usage_tracker",
+    "openai_stream_usage_tracker",
     "AIGooException",
     "AIGooFlow",
     "Edge",
@@ -57,5 +58,4 @@ __all__ = [
     "bedrock_usage_tracker",
     "track_bedrock_usage",
     "bedrock_stream_usage_tracker",
-    "track_bedrock_stream_usage",
 ]
