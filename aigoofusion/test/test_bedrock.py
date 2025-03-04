@@ -15,16 +15,11 @@ from aigoofusion import (
     tools_node,
     START,
     END,
-)
-
-from aigoofusion.chat.models.bedrock.bedrock_model import (
+    bedrock_usage_tracker,
+    bedrock_stream_usage_tracker,
+    BedrockConfig,
     BedrockModel,
 )
-from aigoofusion.chat.models.bedrock.bedrock_config import BedrockConfig
-from aigoofusion.chat.models.bedrock.bedrock_stream_usage_tracker import (
-    bedrock_stream_usage_tracker,
-)
-from aigoofusion.chat.models.bedrock.bedrock_usage_tracker import bedrock_usage_tracker
 
 env_file = os.getenv("ENV_FILE", ".env")  # Default to .env if ENV_FILE is not set
 load_dotenv(env_file)
@@ -39,7 +34,7 @@ def test_anthropic():
     # Configuration
     config = BedrockConfig(temperature=0.7)
     llm = BedrockModel(
-        model="anthropic.claude-3-haiku-20240307-v1:0",
+        model="amazon.nova-lite-v1:0",
         config=config,
     )
 
@@ -48,7 +43,7 @@ def test_anthropic():
     {info}
     </data>
     
-    DO NOT response outside context."""
+    Answer only relevant questions, otherwise, say I don't know."""
 
     # Initialize framework
     framework = AIGooChat(llm, system_message=SYSTEM_PROMPT, input_variables=["info"])
@@ -288,8 +283,8 @@ async def test_flow():
 
 
 if __name__ == "__main__":
-    # test_anthropic()
-    test_tools()
+    test_anthropic()
+    # test_tools()
     # test_stream()
 
 

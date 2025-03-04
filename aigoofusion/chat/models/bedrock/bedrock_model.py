@@ -72,7 +72,9 @@ class BedrockModel(BaseAIModel):
         **kwargs,
     ) -> AIResponse:
         try:
-            _system = [msg for msg in messages if msg["role"] == "system"][0]["content"]
+            _system = next(
+                (msg["content"] for msg in messages if msg["role"] == "system"), None
+            )
             _messages = [msg for msg in messages if msg["role"] != "system"]
 
             inferences = {
@@ -98,9 +100,9 @@ class BedrockModel(BaseAIModel):
             params = {
                 "modelId": self.model_name,
                 "messages": _messages,
-                "system": _system,
                 "inferenceConfig": inference_config,
                 "additionalModelRequestFields": additional_config,
+                **({"system": _system} if _system is not None else {}),
             }
 
             if tools:
@@ -174,7 +176,9 @@ class BedrockModel(BaseAIModel):
         **kwargs,
     ) -> Any:
         try:
-            _system = [msg for msg in messages if msg["role"] == "system"][0]["content"]
+            _system = next(
+                (msg["content"] for msg in messages if msg["role"] == "system"), None
+            )
             _messages = [msg for msg in messages if msg["role"] != "system"]
 
             inferences = {
@@ -200,9 +204,9 @@ class BedrockModel(BaseAIModel):
             params = {
                 "modelId": self.model_name,
                 "messages": _messages,
-                "system": _system,
                 "inferenceConfig": inference_config,
                 "additionalModelRequestFields": additional_config,
+                **({"system": _system} if _system is not None else {}),
             }
 
             if tools:
